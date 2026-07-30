@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   getPlayers,
   addPlayer,
@@ -17,6 +18,7 @@ import { useAuth } from "./components/AuthProvider";
 
 export default function GeneratePage() {
   const { isAdmin, loading: authLoading } = useAuth();
+  const router = useRouter();
 
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,12 @@ export default function GeneratePage() {
   const [editingPairings, setEditingPairings] = useState(false);
   const [pairingSnapshot, setPairingSnapshot] = useState(null);
   const [pairingMsg, setPairingMsg] = useState("");
+
+  useEffect(() => {
+    if (!authLoading && !isAdmin) {
+      router.replace("/record");
+    }
+  }, [authLoading, isAdmin, router]);
 
   useEffect(() => {
     (async () => {
@@ -250,6 +258,10 @@ export default function GeneratePage() {
   }
 
   if (authLoading || loading) return <p className="subtle">Loading&hellip;</p>;
+
+  if (!authLoading && !isAdmin) {
+    return null;
+  }
 
   if (loadError) {
     return (
