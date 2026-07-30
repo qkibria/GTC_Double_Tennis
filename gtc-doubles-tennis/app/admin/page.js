@@ -46,9 +46,8 @@ export default function AdminPage() {
     <div>
       <h1>Admin login</h1>
       <p className="subtle">
-        Everyone can view players, matches, and stats without logging in.
-        Log in here to add players, generate matches, edit pairings, and
-        enter results.
+        Everyone can view the Record and Stats pages without logging in.
+        Log in here to access the Generate page and manage matches.
       </p>
       <form onSubmit={handleSubmit}>
         <label className="subtle" style={{ display: "block" }}>Email</label>
