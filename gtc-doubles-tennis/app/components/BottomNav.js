@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "./AuthProvider";
 
 const TABS = [
   { href: "/", label: "🎾 Generate" },
@@ -11,10 +12,12 @@ const TABS = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { isAdmin, loading } = useAuth();
+  const visibleTabs = loading || isAdmin ? TABS : TABS.filter((tab) => tab.href !== "/");
 
   return (
     <nav className="bottom-nav">
-      {TABS.map((tab) => {
+      {visibleTabs.map((tab) => {
         const isActive =
           tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
         return (
