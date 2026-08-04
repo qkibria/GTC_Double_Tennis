@@ -214,17 +214,24 @@ export default function RecordPage() {
               <label className="subtle" style={{ display: "block", marginBottom: 4 }}>
                 Category
               </label>
-              <input
-                list="record-category-options"
+              <select
                 value={categoryInput}
                 onChange={(e) => setCategoryInput(e.target.value)}
-                placeholder="Thursday Practice"
-              />
-              <datalist id="record-category-options">
+              >
+                <option value="">Select or enter a category</option>
                 {categories.map((category) => (
-                  <option key={category} value={category} />
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
                 ))}
-              </datalist>
+              </select>
+              <input
+                type="text"
+                value={categoryInput}
+                onChange={(e) => setCategoryInput(e.target.value)}
+                placeholder="New category"
+                style={{ marginTop: 4 }}
+              />
               <button style={{ marginTop: 8 }} onClick={handleSaveWeek} disabled={busy}>
                 Save week category and pairings
               </button>
