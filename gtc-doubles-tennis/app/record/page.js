@@ -20,13 +20,13 @@ export default function RecordPage() {
   const [activeId, setActiveId] = useState(null);
   const [scores, setScores] = useState({}); // key: "round-court" -> {a, b}
   const [categories, setCategories] = useState([]);
-  const [categoryInput, setCategoryInput] = useState("");
+  const [category, setCategory] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const activeWeek = weeks.find((w) => w.id === activeId) || null;
-  const categorySelectValue = categories.includes(categoryInput) ? categoryInput : "";
+  const categorySelectValue = categories.includes(category) ? category : "";
 
   useEffect(() => {
     (async () => {
@@ -50,7 +50,7 @@ export default function RecordPage() {
 
   useEffect(() => {
     if (activeWeek) {
-      setCategoryInput(activeWeek.category || "");
+      setCategory(activeWeek.category || "");
     }
   }, [activeWeek?.id]);
 
@@ -124,7 +124,7 @@ export default function RecordPage() {
     if (!activeWeek) return;
     setBusy(true);
     try {
-      const normalizedCategory = (categoryInput || "").trim() || "Uncategorized";
+      const normalizedCategory = (category || "").trim() || "Uncategorized";
       const saved = await saveWeek({
         id: activeWeek.id,
         date: activeWeek.date,
@@ -137,7 +137,7 @@ export default function RecordPage() {
       setCategories((prev) =>
         prev.includes(normalizedCategory) ? prev : [normalizedCategory, ...prev]
       );
-      setCategoryInput(saved.category || normalizedCategory);
+      setCategory(saved.category || normalizedCategory);
       setActiveId(saved.id);
     } catch (err) {
       alert(err.message || "Couldn't save that week.");
@@ -217,7 +217,7 @@ export default function RecordPage() {
               </label>
               <select
                 value={categorySelectValue}
-                onChange={(e) => setCategoryInput(e.target.value)}
+                onChange={(e) => setCategory(e.target.value)}
               >
                 <option value="">Select or enter a category</option>
                 {categories.map((category) => (
@@ -229,8 +229,8 @@ export default function RecordPage() {
               <input
                 type="text"
                 placeholder="New category"
-                value={categoryInput}
-                onChange={(e) => setCategoryInput(e.target.value)}
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
                 style={{ marginTop: 4 }}
               />
               <button style={{ marginTop: 8 }} onClick={handleSaveWeek} disabled={busy}>
