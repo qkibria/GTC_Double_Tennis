@@ -360,11 +360,6 @@ export default function RecordPage() {
                       <>
                         <div className="vs-row">
                           <span className="team-name">{c.teamA.join(" & ")}</span>
-                          <span>vs</span>
-                          <span className="team-name">{c.teamB.join(" & ")}</span>
-                        </div>
-                        <div className="vs-row">
-                          <span className="team-name">{c.teamA.join(" & ")}</span>
                           <input
                             type="number"
                             style={{ width: 60, marginBottom: 0 }}
