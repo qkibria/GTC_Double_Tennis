@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   getWeeks,
   getCategories,
+  getPlayers,
   saveCourtResult,
   saveWeek,
   deleteWeek,
@@ -15,6 +16,7 @@ export default function RecordPage() {
   const { isAdmin, loading: authLoading } = useAuth();
 
   const [weeks, setWeeks] = useState([]);
+  const [players, setPlayers] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [scores, setScores] = useState({}); // key: "round-court" -> {a, b}
   const [categories, setCategories] = useState([]);
@@ -28,9 +30,14 @@ export default function RecordPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [all, existingCategories] = await Promise.all([getWeeks(), getCategories()]);
+        const [all, existingCategories, allPlayers] = await Promise.all([
+          getWeeks(),
+          getCategories(),
+          getPlayers(),
+        ]);
         setWeeks(all);
         setCategories(existingCategories);
+        setPlayers(allPlayers);
         if (all.length > 0) setActiveId(all[0].id);
       } catch (err) {
         setLoadError("Couldn't load data — check your internet connection and try refreshing.");
@@ -235,22 +242,40 @@ export default function RecordPage() {
                       <div className="vs-row" style={{ alignItems: "flex-start", gap: 8 }}>
                         <div style={{ flex: 1 }}>
                           {c.teamA.map((player, idx) => (
-                            <input
+                            <select
                               key={`teamA-${idx}`}
                               value={player}
                               onChange={(e) => updateCourtPlayer(r.round, c.court, "teamA", idx, e.target.value)}
-                              style={{ display: "block", marginBottom: 4, width: "100%" }}
-                            />
+                              style={{ marginBottom: 4, width: "100%" }}
+                            >
+                              {players.map((registeredPlayer) => (
+                                <option key={registeredPlayer.id} value={registeredPlayer.name}>
+                                  {registeredPlayer.name}
+                                </option>
+                              ))}
+                              {!players.some((registeredPlayer) => registeredPlayer.name === player) && player && (
+                                <option value={player}>{player}</option>
+                              )}
+                            </select>
                           ))}
                         </div>
                         <div style={{ flex: 1 }}>
                           {c.teamB.map((player, idx) => (
-                            <input
+                            <select
                               key={`teamB-${idx}`}
                               value={player}
                               onChange={(e) => updateCourtPlayer(r.round, c.court, "teamB", idx, e.target.value)}
-                              style={{ display: "block", marginBottom: 4, width: "100%" }}
-                            />
+                              style={{ marginBottom: 4, width: "100%" }}
+                            >
+                              {players.map((registeredPlayer) => (
+                                <option key={registeredPlayer.id} value={registeredPlayer.name}>
+                                  {registeredPlayer.name}
+                                </option>
+                              ))}
+                              {!players.some((registeredPlayer) => registeredPlayer.name === player) && player && (
+                                <option value={player}>{player}</option>
+                              )}
+                            </select>
                           ))}
                         </div>
                       </div>
@@ -258,7 +283,7 @@ export default function RecordPage() {
                         <span className="team-name">{c.teamA.join(" & ")}</span>
                         <input
                           type="number"
-                          style={{ width: 60 }}
+                          style={{ width: 60, marginBottom: 0 }}
                           value={scoreValue(r.round, c.court, "a", c)}
                           onChange={(e) => setScore(r.round, c.court, "a", e.target.value)}
                         />
@@ -267,7 +292,7 @@ export default function RecordPage() {
                         <span className="team-name">{c.teamB.join(" & ")}</span>
                         <input
                           type="number"
-                          style={{ width: 60 }}
+                          style={{ width: 60, marginBottom: 0 }}
                           value={scoreValue(r.round, c.court, "b", c)}
                           onChange={(e) => setScore(r.round, c.court, "b", e.target.value)}
                         />
