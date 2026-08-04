@@ -107,7 +107,7 @@ export default function RecordPage() {
     const scoreB = Number(s.b ?? courtObj.scoreB ?? 0);
     setBusy(true);
     try {
-      await saveCourtResult(activeWeek.id, round, court, scoreA, scoreB);
+      await saveCourtResult(activeWeek.id, round, court, scoreA, scoreB, activeWeek.rounds);
       const refreshed = await getWeeks();
       setWeeks(refreshed);
       setScores((prev) => {
@@ -224,7 +224,7 @@ export default function RecordPage() {
               </label>
               <select
                 value={categorySelectValue}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => setSelectedCategory(e.target.value)}
               >
                 <option value="">Select or enter a category</option>
                 {categories.map((category) => (
@@ -236,8 +236,8 @@ export default function RecordPage() {
               <input
                 type="text"
                 placeholder="New category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
                 style={{ marginTop: 4 }}
               />
               <button style={{ marginTop: 8 }} onClick={handleSaveWeek} disabled={busy}>
