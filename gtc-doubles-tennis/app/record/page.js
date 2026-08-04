@@ -26,6 +26,7 @@ export default function RecordPage() {
   const [busy, setBusy] = useState(false);
 
   const activeWeek = weeks.find((w) => w.id === activeId) || null;
+  const categorySelectValue = categories.includes(categoryInput) ? categoryInput : "";
 
   useEffect(() => {
     (async () => {
@@ -215,7 +216,7 @@ export default function RecordPage() {
                 Category
               </label>
               <select
-                value={categoryInput}
+                value={categorySelectValue}
                 onChange={(e) => setCategoryInput(e.target.value)}
               >
                 <option value="">Select or enter a category</option>
