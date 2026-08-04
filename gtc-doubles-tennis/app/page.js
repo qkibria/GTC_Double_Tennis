@@ -11,6 +11,7 @@ import {
   saveWeek,
   findWeekByDate,
   getDefaultMatchDate,
+  getCategories,
   formatDateLong,
 } from "../lib/storage";
 import { generateRounds } from "../lib/pairing";
@@ -28,6 +29,8 @@ export default function GeneratePage() {
   const [selected, setSelected] = useState(new Set());
   const [newName, setNewName] = useState("");
   const [newRating, setNewRating] = useState(5);
+  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editRating, setEditRating] = useState(5);
@@ -50,9 +53,14 @@ export default function GeneratePage() {
   useEffect(() => {
     (async () => {
       try {
-        const [allPlayers, weeks] = await Promise.all([getPlayers(), getWeeks()]);
+        const [allPlayers, weeks, existingCategories] = await Promise.all([
+          getPlayers(),
+          getWeeks(),
+          getCategories(),
+        ]);
         setPlayers(allPlayers);
         setLatestWeek(weeks[0] || null);
+        setCategories(existingCategories);
       } catch (err) {
         setLoadError("Couldn't load data — check your internet connection and try refreshing.");
       } finally {
@@ -168,9 +176,15 @@ export default function GeneratePage() {
         date: matchDate,
         numRounds: rounds,
         rounds: roundsWithScores,
+        category,
       });
 
-      setResult({ ...outcome, rounds: roundsWithScores });
+      const normalizedCategory = category.trim() || "Uncategorized";
+      setCategory(normalizedCategory);
+      setCategories((prev) =>
+        prev.includes(normalizedCategory) ? prev : [normalizedCategory, ...prev]
+      );
+      setResult({ ...outcome, rounds: roundsWithScores, category: normalizedCategory });
       setLatestWeek(saved);
     } catch (err) {
       setErrorMsg(err.message || "Couldn't save the generated matches.");
@@ -246,6 +260,7 @@ export default function GeneratePage() {
         date: matchDate,
         numRounds: Number(numRounds) || 3,
         rounds: result.rounds,
+        category: result.category || category || "Uncategorized",
       });
       setLatestWeek(saved);
       setEditingPairings(false);
@@ -332,6 +347,20 @@ export default function GeneratePage() {
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Add a player</h2>
+        <label className="subtle" style={{ display: "block", marginBottom: 4 }}>
+          Category
+        </label>
+        <input
+          list="category-options"
+          placeholder="Thursday Practice"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        />
+        <datalist id="category-options">
+          {categories.map((existingCategory) => (
+            <option key={existingCategory} value={existingCategory} />
+          ))}
+        </datalist>
         <input
           type="text"
           placeholder="Player name"
