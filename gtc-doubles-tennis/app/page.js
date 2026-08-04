@@ -35,6 +35,7 @@ export default function GeneratePage() {
   const [editName, setEditName] = useState("");
   const [editRating, setEditRating] = useState(5);
   const [matchDate, setMatchDate] = useState("");
+  const categorySelectValue = categories.includes(category) ? category : "";
   const [numRounds, setNumRounds] = useState(3);
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -351,7 +352,7 @@ export default function GeneratePage() {
           Category
         </label>
         <select
-          value={category}
+          value={categorySelectValue}
           onChange={(e) => setCategory(e.target.value)}
         >
           <option value="">Select or enter a category</option>
