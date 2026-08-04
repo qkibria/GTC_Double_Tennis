@@ -350,17 +350,24 @@ export default function GeneratePage() {
         <label className="subtle" style={{ display: "block", marginBottom: 4 }}>
           Category
         </label>
-        <input
-          list="category-options"
-          placeholder="Thursday Practice"
+        <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-        />
-        <datalist id="category-options">
+        >
+          <option value="">Select or enter a category</option>
           {categories.map((existingCategory) => (
-            <option key={existingCategory} value={existingCategory} />
+            <option key={existingCategory} value={existingCategory}>
+              {existingCategory}
+            </option>
           ))}
-        </datalist>
+        </select>
+        <input
+          type="text"
+          placeholder="New category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          style={{ marginTop: 4 }}
+        />
         <input
           type="text"
           placeholder="Player name"
