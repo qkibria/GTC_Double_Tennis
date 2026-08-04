@@ -20,13 +20,14 @@ export default function RecordPage() {
   const [activeId, setActiveId] = useState(null);
   const [scores, setScores] = useState({}); // key: "round-court" -> {a, b}
   const [categories, setCategories] = useState([]);
-  const [category, setCategory] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [newCategory, setNewCategory] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const activeWeek = weeks.find((w) => w.id === activeId) || null;
-  const categorySelectValue = categories.includes(category) ? category : "";
+  const categorySelectValue = categories.includes(selectedCategory) ? selectedCategory : "";
 
   useEffect(() => {
     (async () => {
@@ -50,7 +51,8 @@ export default function RecordPage() {
 
   useEffect(() => {
     if (activeWeek) {
-      setCategory(activeWeek.category || "");
+      setSelectedCategory(activeWeek.category || "");
+      setNewCategory("");
     }
   }, [activeWeek?.id]);
 
@@ -124,7 +126,7 @@ export default function RecordPage() {
     if (!activeWeek) return;
     setBusy(true);
     try {
-      const normalizedCategory = (category || "").trim() || "Uncategorized";
+      const normalizedCategory = (newCategory || selectedCategory || "").trim() || "Uncategorized";
       const saved = await saveWeek({
         id: activeWeek.id,
         date: activeWeek.date,
@@ -137,7 +139,8 @@ export default function RecordPage() {
       setCategories((prev) =>
         prev.includes(normalizedCategory) ? prev : [normalizedCategory, ...prev]
       );
-      setCategory(saved.category || normalizedCategory);
+      setSelectedCategory(saved.category || normalizedCategory);
+      setNewCategory("");
       setActiveId(saved.id);
     } catch (err) {
       alert(err.message || "Couldn't save that week.");
@@ -187,22 +190,26 @@ export default function RecordPage() {
 
       {weeks.length > 0 && (
         <div className="week-list">
-          {weeks.map((w) => (
-            <button
-              key={w.id}
-              className={`week-chip${w.id === activeId ? " active" : ""}`}
-              onClick={() => setActiveId(w.id)}
-            >
-              {formatDateLong(w.date)}
-            </button>
-          ))}
-        </div>
+            {weeks.map((w) => (
+              <button
+                key={w.id}
+                className={`week-chip${w.id === activeId ? " active" : ""}`}
+                onClick={() => setActiveId(w.id)}
+              >
+                {formatDateLong(w.date)}
+                {w.category && <span className="pill" style={{ marginLeft: 8 }}>{w.category}</span>}
+              </button>
+            ))}
+          </div>
       )}
 
       {activeWeek && (
         <div style={{ marginTop: 8 }}>
           <div className="list-row" style={{ borderBottom: "none" }}>
-            <h2 style={{ margin: 0 }}>{formatDateLong(activeWeek.date)}</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h2 style={{ margin: 0 }}>{formatDateLong(activeWeek.date)}</h2>
+              {activeWeek.category && <span className="pill">{activeWeek.category}</span>}
+            </div>
             {isAdmin && (
               <button className="danger" onClick={() => removeWeek(activeWeek.id)} disabled={busy}>
                 Delete week
