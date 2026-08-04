@@ -18,15 +18,19 @@ export default function RecordPage() {
   const [weeks, setWeeks] = useState([]);
   const [players, setPlayers] = useState([]);
   const [activeId, setActiveId] = useState(null);
+  const [draftWeek, setDraftWeek] = useState(null);
   const [scores, setScores] = useState({}); // key: "round-court" -> {a, b}
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [newCategory, setNewCategory] = useState("");
+  const [editingPairings, setEditingPairings] = useState(false);
+  const [pairingSnapshot, setPairingSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const activeWeek = weeks.find((w) => w.id === activeId) || null;
+  const weekToShow = draftWeek || activeWeek;
   const categorySelectValue = categories.includes(selectedCategory) ? selectedCategory : "";
 
   useEffect(() => {
@@ -53,6 +57,11 @@ export default function RecordPage() {
     if (activeWeek) {
       setSelectedCategory(activeWeek.category || "");
       setNewCategory("");
+      setDraftWeek(JSON.parse(JSON.stringify(activeWeek)));
+      setEditingPairings(false);
+      setPairingSnapshot(null);
+    } else {
+      setDraftWeek(null);
     }
   }, [activeWeek?.id]);
 
@@ -73,41 +82,66 @@ export default function RecordPage() {
   }
 
   function updateCourtPlayer(round, court, team, slotIndex, value) {
-    setWeeks((prev) =>
-      prev.map((week) => {
-        if (week.id !== activeWeek?.id) return week;
-        return {
-          ...week,
-          rounds: week.rounds.map((r) => {
-            if (r.round !== round) return r;
-            return {
-              ...r,
-              courts: r.courts.map((c) => {
-                if (c.court !== court) return c;
-                const nextTeam = [...(team === "teamA" ? c.teamA : c.teamB)];
-                nextTeam[slotIndex] = value;
-                return {
-                  ...c,
-                  [team]: nextTeam,
-                };
-              }),
-            };
-          }),
-        };
-      })
+    if (!draftWeek) return;
+    setDraftWeek((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        rounds: prev.rounds.map((r) => {
+          if (r.round !== round) return r;
+          return {
+            ...r,
+            courts: r.courts.map((c) => {
+              if (c.court !== court) return c;
+              const nextTeam = [...(team === "teamA" ? c.teamA : c.teamB)];
+              nextTeam[slotIndex] = value;
+              return {
+                ...c,
+                [team]: nextTeam,
+                scoreA: "",
+                scoreB: "",
+                saved: false,
+              };
+            }),
+          };
+        }),
+      };
+    });
+  }
+
+  function weekPlayerPool() {
+    if (!weekToShow) return [];
+    return Array.from(
+      new Set(
+        weekToShow.rounds.flatMap((r) =>
+          r.courts.flatMap((c) => [...c.teamA, ...c.teamB])
+        )
+      )
     );
+  }
+
+  function clearScores(rounds) {
+    return rounds.map((r) => ({
+      ...r,
+      courts: r.courts.map((c) => ({
+        ...c,
+        scoreA: "",
+        scoreB: "",
+        saved: false,
+      })),
+    }));
   }
 
   async function handleSave(round, court) {
     const key = keyFor(round, court);
     const s = scores[key] || {};
-    const roundObj = activeWeek.rounds.find((r) => r.round === round);
+    const roundObj = weekToShow.rounds.find((r) => r.round === round);
     const courtObj = roundObj.courts.find((c) => c.court === court);
     const scoreA = Number(s.a ?? courtObj.scoreA ?? 0);
     const scoreB = Number(s.b ?? courtObj.scoreB ?? 0);
     setBusy(true);
     try {
-      await saveCourtResult(activeWeek.id, round, court, scoreA, scoreB, activeWeek.rounds);
+      await saveCourtResult(activeWeek.id, round, court, scoreA, scoreB, weekToShow.rounds);
       const refreshed = await getWeeks();
       setWeeks(refreshed);
       setScores((prev) => {
@@ -122,16 +156,30 @@ export default function RecordPage() {
     }
   }
 
+  function startEditPairings() {
+    setPairingSnapshot(draftWeek ? JSON.parse(JSON.stringify(draftWeek)) : null);
+    setEditingPairings(true);
+  }
+
+  function cancelEditPairings() {
+    if (pairingSnapshot) {
+      setDraftWeek(pairingSnapshot);
+    }
+    setPairingSnapshot(null);
+    setEditingPairings(false);
+  }
+
   async function handleSaveWeek() {
-    if (!activeWeek) return;
+    if (!weekToShow) return;
     setBusy(true);
     try {
       const normalizedCategory = (newCategory || selectedCategory || "").trim() || "Uncategorized";
+      const roundsToSave = editingPairings ? clearScores(weekToShow.rounds) : weekToShow.rounds;
       const saved = await saveWeek({
         id: activeWeek.id,
         date: activeWeek.date,
         numRounds: activeWeek.num_rounds ?? activeWeek.numRounds ?? 3,
-        rounds: activeWeek.rounds,
+        rounds: roundsToSave,
         category: normalizedCategory,
       });
       const refreshed = await getWeeks();
@@ -142,6 +190,10 @@ export default function RecordPage() {
       setSelectedCategory(saved.category || normalizedCategory);
       setNewCategory("");
       setActiveId(saved.id);
+      setDraftWeek(JSON.parse(JSON.stringify(saved)));
+      setEditingPairings(false);
+      setPairingSnapshot(null);
+      setScores({});
     } catch (err) {
       alert(err.message || "Couldn't save that week.");
     } finally {
@@ -218,104 +270,122 @@ export default function RecordPage() {
           </div>
 
           {isAdmin && (
-            <div className="card" style={{ marginBottom: 12 }}>
-              <label className="subtle" style={{ display: "block", marginBottom: 4 }}>
-                Category
-              </label>
-              <select
-                value={categorySelectValue}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-              >
-                <option value="">Select or enter a category</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                placeholder="New category"
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
-                style={{ marginTop: 4 }}
-              />
-              <button style={{ marginTop: 8 }} onClick={handleSaveWeek} disabled={busy}>
-                Save week category and pairings
-              </button>
-            </div>
+            <>
+              <div className="card" style={{ marginBottom: 12 }}>
+                <label className="subtle" style={{ display: "block", marginBottom: 4 }}>
+                  Category
+                </label>
+                <select
+                  value={categorySelectValue}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                >
+                  <option value="">Select or enter a category</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="New category"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  style={{ marginTop: 4 }}
+                />
+                <div className="actions-row" style={{ marginTop: 8 }}>
+                  <button onClick={handleSaveWeek} disabled={busy}>
+                    Save pairing changes
+                  </button>
+                  {!editingPairings ? (
+                    <button className="secondary" onClick={startEditPairings} disabled={busy}>
+                      Edit pairings
+                    </button>
+                  ) : (
+                    <button className="secondary" onClick={cancelEditPairings} disabled={busy}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
           )}
 
-          {activeWeek.rounds.map((r) => (
+          {weekToShow.rounds.map((r) => (
             <div key={r.round}>
               <h2>Round {r.round}</h2>
               {r.courts.map((c) => (
                 <div className="court-card" key={c.court}>
                   <h3>Court {c.court}</h3>
                   {isAdmin ? (
-                    <>
-                      <div className="vs-row" style={{ alignItems: "flex-start", gap: 8 }}>
-                        <div style={{ flex: 1 }}>
-                          {c.teamA.map((player, idx) => (
-                            <select
-                              key={`teamA-${idx}`}
-                              value={player}
-                              onChange={(e) => updateCourtPlayer(r.round, c.court, "teamA", idx, e.target.value)}
-                              style={{ marginBottom: 4, width: "100%" }}
-                            >
-                              {players.map((registeredPlayer) => (
-                                <option key={registeredPlayer.id} value={registeredPlayer.name}>
-                                  {registeredPlayer.name}
-                                </option>
-                              ))}
-                              {!players.some((registeredPlayer) => registeredPlayer.name === player) && player && (
-                                <option value={player}>{player}</option>
-                              )}
-                            </select>
-                          ))}
+                    editingPairings ? (
+                      <>
+                        <div className="vs-row" style={{ alignItems: "flex-start", gap: 8 }}>
+                          <div style={{ flex: 1 }}>
+                            {c.teamA.map((player, idx) => (
+                              <select
+                                key={`teamA-${idx}`}
+                                value={player}
+                                onChange={(e) => updateCourtPlayer(r.round, c.court, "teamA", idx, e.target.value)}
+                                style={{ marginBottom: 4, width: "100%" }}
+                              >
+                                {weekPlayerPool().map((name) => (
+                                  <option key={name} value={name}>
+                                    {name}
+                                  </option>
+                                ))}
+                              </select>
+                            ))}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            {c.teamB.map((player, idx) => (
+                              <select
+                                key={`teamB-${idx}`}
+                                value={player}
+                                onChange={(e) => updateCourtPlayer(r.round, c.court, "teamB", idx, e.target.value)}
+                                style={{ marginBottom: 4, width: "100%" }}
+                              >
+                                {weekPlayerPool().map((name) => (
+                                  <option key={name} value={name}>
+                                    {name}
+                                  </option>
+                                ))}
+                              </select>
+                            ))}
+                          </div>
                         </div>
-                        <div style={{ flex: 1 }}>
-                          {c.teamB.map((player, idx) => (
-                            <select
-                              key={`teamB-${idx}`}
-                              value={player}
-                              onChange={(e) => updateCourtPlayer(r.round, c.court, "teamB", idx, e.target.value)}
-                              style={{ marginBottom: 4, width: "100%" }}
-                            >
-                              {players.map((registeredPlayer) => (
-                                <option key={registeredPlayer.id} value={registeredPlayer.name}>
-                                  {registeredPlayer.name}
-                                </option>
-                              ))}
-                              {!players.some((registeredPlayer) => registeredPlayer.name === player) && player && (
-                                <option value={player}>{player}</option>
-                              )}
-                            </select>
-                          ))}
+                        <p className="subtle" style={{ margin: "4px 0" }}>Editing pairings; save pairing changes.</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="vs-row">
+                          <span className="team-name">{c.teamA.join(" & ")}</span>
+                          <span>vs</span>
+                          <span className="team-name">{c.teamB.join(" & ")}</span>
                         </div>
-                      </div>
-                      <div className="vs-row">
-                        <span className="team-name">{c.teamA.join(" & ")}</span>
-                        <input
-                          type="number"
-                          style={{ width: 60, marginBottom: 0 }}
-                          value={scoreValue(r.round, c.court, "a", c)}
-                          onChange={(e) => setScore(r.round, c.court, "a", e.target.value)}
-                        />
-                      </div>
-                      <div className="vs-row">
-                        <span className="team-name">{c.teamB.join(" & ")}</span>
-                        <input
-                          type="number"
-                          style={{ width: 60, marginBottom: 0 }}
-                          value={scoreValue(r.round, c.court, "b", c)}
-                          onChange={(e) => setScore(r.round, c.court, "b", e.target.value)}
-                        />
-                      </div>
-                      <button style={{ marginTop: 8 }} onClick={() => handleSave(r.round, c.court)} disabled={busy}>
-                        {c.saved ? "Saved ✓ (save again to update)" : "Save result"}
-                      </button>
-                    </>
+                        <div className="vs-row">
+                          <span className="team-name">{c.teamA.join(" & ")}</span>
+                          <input
+                            type="number"
+                            style={{ width: 60, marginBottom: 0 }}
+                            value={scoreValue(r.round, c.court, "a", c)}
+                            onChange={(e) => setScore(r.round, c.court, "a", e.target.value)}
+                          />
+                        </div>
+                        <div className="vs-row">
+                          <span className="team-name">{c.teamB.join(" & ")}</span>
+                          <input
+                            type="number"
+                            style={{ width: 60, marginBottom: 0 }}
+                            value={scoreValue(r.round, c.court, "b", c)}
+                            onChange={(e) => setScore(r.round, c.court, "b", e.target.value)}
+                          />
+                        </div>
+                        <button style={{ marginTop: 8 }} onClick={() => handleSave(r.round, c.court)} disabled={busy}>
+                          {c.saved ? "Saved ✓ (save again to update)" : "Save result"}
+                        </button>
+                      </>
+                    )
                   ) : (
                     <>
                       <div className="vs-row">
