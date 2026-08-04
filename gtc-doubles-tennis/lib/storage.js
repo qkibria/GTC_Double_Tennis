@@ -251,6 +251,7 @@ export async function computeStats(category = null) {
     });
 
   return Object.values(stats)
+    .filter((s) => s.played > 0)
     .map((s) => ({ ...s, winPct: s.played ? Math.round((s.won / s.played) * 100) : 0 }))
     .sort((a, b) => b.winPct - a.winPct || b.played - a.played);
 }
