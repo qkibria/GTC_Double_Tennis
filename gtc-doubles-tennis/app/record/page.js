@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getWeeks, saveCourtResult, deleteWeek, formatDateLong } from "../../lib/storage";
+import {
+  getWeeks,
+  getCategories,
+  saveCourtResult,
+  saveWeek,
+  deleteWeek,
+  formatDateLong,
+} from "../../lib/storage";
 import { useAuth } from "../components/AuthProvider";
 
 export default function RecordPage() {
@@ -10,6 +17,8 @@ export default function RecordPage() {
   const [weeks, setWeeks] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [scores, setScores] = useState({}); // key: "round-court" -> {a, b}
+  const [categories, setCategories] = useState([]);
+  const [categoryInput, setCategoryInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -17,8 +26,9 @@ export default function RecordPage() {
   useEffect(() => {
     (async () => {
       try {
-        const all = await getWeeks();
+        const [all, existingCategories] = await Promise.all([getWeeks(), getCategories()]);
         setWeeks(all);
+        setCategories(existingCategories);
         if (all.length > 0) setActiveId(all[0].id);
       } catch (err) {
         setLoadError("Couldn't load data — check your internet connection and try refreshing.");
@@ -27,6 +37,12 @@ export default function RecordPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (activeWeek) {
+      setCategoryInput(activeWeek.category || "");
+    }
+  }, [activeWeek?.id]);
 
   const activeWeek = weeks.find((w) => w.id === activeId) || null;
 
@@ -44,6 +60,32 @@ export default function RecordPage() {
   function setScore(round, court, side, value) {
     const key = keyFor(round, court);
     setScores((prev) => ({ ...prev, [key]: { ...prev[key], [side]: value } }));
+  }
+
+  function updateCourtPlayer(round, court, team, slotIndex, value) {
+    setWeeks((prev) =>
+      prev.map((week) => {
+        if (week.id !== activeWeek?.id) return week;
+        return {
+          ...week,
+          rounds: week.rounds.map((r) => {
+            if (r.round !== round) return r;
+            return {
+              ...r,
+              courts: r.courts.map((c) => {
+                if (c.court !== court) return c;
+                const nextTeam = [...(team === "teamA" ? c.teamA : c.teamB)];
+                nextTeam[slotIndex] = value;
+                return {
+                  ...c,
+                  [team]: nextTeam,
+                };
+              }),
+            };
+          }),
+        };
+      })
+    );
   }
 
   async function handleSave(round, court) {
@@ -65,6 +107,32 @@ export default function RecordPage() {
       });
     } catch (err) {
       alert(err.message || "Couldn't save that result.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSaveWeek() {
+    if (!activeWeek) return;
+    setBusy(true);
+    try {
+      const normalizedCategory = (categoryInput || "").trim() || "Uncategorized";
+      const saved = await saveWeek({
+        id: activeWeek.id,
+        date: activeWeek.date,
+        numRounds: activeWeek.num_rounds ?? activeWeek.numRounds ?? 3,
+        rounds: activeWeek.rounds,
+        category: normalizedCategory,
+      });
+      const refreshed = await getWeeks();
+      setWeeks(refreshed);
+      setCategories((prev) =>
+        prev.includes(normalizedCategory) ? prev : [normalizedCategory, ...prev]
+      );
+      setCategoryInput(saved.category || normalizedCategory);
+      setActiveId(saved.id);
+    } catch (err) {
+      alert(err.message || "Couldn't save that week.");
     } finally {
       setBusy(false);
     }
@@ -134,6 +202,28 @@ export default function RecordPage() {
             )}
           </div>
 
+          {isAdmin && (
+            <div className="card" style={{ marginBottom: 12 }}>
+              <label className="subtle" style={{ display: "block", marginBottom: 4 }}>
+                Category
+              </label>
+              <input
+                list="record-category-options"
+                value={categoryInput}
+                onChange={(e) => setCategoryInput(e.target.value)}
+                placeholder="Thursday Practice"
+              />
+              <datalist id="record-category-options">
+                {categories.map((category) => (
+                  <option key={category} value={category} />
+                ))}
+              </datalist>
+              <button style={{ marginTop: 8 }} onClick={handleSaveWeek} disabled={busy}>
+                Save week category and pairings
+              </button>
+            </div>
+          )}
+
           {activeWeek.rounds.map((r) => (
             <div key={r.round}>
               <h2>Round {r.round}</h2>
@@ -142,6 +232,28 @@ export default function RecordPage() {
                   <h3>Court {c.court}</h3>
                   {isAdmin ? (
                     <>
+                      <div className="vs-row" style={{ alignItems: "flex-start", gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          {c.teamA.map((player, idx) => (
+                            <input
+                              key={`teamA-${idx}`}
+                              value={player}
+                              onChange={(e) => updateCourtPlayer(r.round, c.court, "teamA", idx, e.target.value)}
+                              style={{ display: "block", marginBottom: 4, width: "100%" }}
+                            />
+                          ))}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          {c.teamB.map((player, idx) => (
+                            <input
+                              key={`teamB-${idx}`}
+                              value={player}
+                              onChange={(e) => updateCourtPlayer(r.round, c.court, "teamB", idx, e.target.value)}
+                              style={{ display: "block", marginBottom: 4, width: "100%" }}
+                            />
+                          ))}
+                        </div>
+                      </div>
                       <div className="vs-row">
                         <span className="team-name">{c.teamA.join(" & ")}</span>
                         <input
