@@ -23,6 +23,8 @@ export default function RecordPage() {
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const activeWeek = weeks.find((w) => w.id === activeId) || null;
+
   useEffect(() => {
     (async () => {
       try {
@@ -43,8 +45,6 @@ export default function RecordPage() {
       setCategoryInput(activeWeek.category || "");
     }
   }, [activeWeek?.id]);
-
-  const activeWeek = weeks.find((w) => w.id === activeId) || null;
 
   function keyFor(round, court) {
     return `${round}-${court}`;
