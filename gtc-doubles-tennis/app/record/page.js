@@ -228,9 +228,9 @@ export default function RecordPage() {
               </select>
               <input
                 type="text"
+                placeholder="New category"
                 value={categoryInput}
                 onChange={(e) => setCategoryInput(e.target.value)}
-                placeholder="New category"
                 style={{ marginTop: 4 }}
               />
               <button style={{ marginTop: 8 }} onClick={handleSaveWeek} disabled={busy}>
