@@ -170,15 +170,15 @@ export default function RecordPage() {
   }
 
   async function handleSaveWeek() {
-    if (!weekToShow) return;
+    if (!draftWeek || !activeWeek) return;
     setBusy(true);
     try {
       const normalizedCategory = (newCategory || selectedCategory || "").trim() || "Uncategorized";
-      const roundsToSave = editingPairings ? clearScores(weekToShow.rounds) : weekToShow.rounds;
+      const roundsToSave = editingPairings ? clearScores(draftWeek.rounds) : draftWeek.rounds;
       const saved = await saveWeek({
         id: activeWeek.id,
-        date: activeWeek.date,
-        numRounds: activeWeek.num_rounds ?? activeWeek.numRounds ?? 3,
+        date: draftWeek.date || activeWeek.date,
+        numRounds: draftWeek.num_rounds ?? draftWeek.numRounds ?? 3,
         rounds: roundsToSave,
         category: normalizedCategory,
       });
