@@ -181,10 +181,11 @@ export async function saveWeek({ id, date, numRounds, rounds, category }) {
 }
 
 // Saves one court's score within a week and marks it as saved.
-export async function saveCourtResult(weekId, roundNumber, courtNumber, scoreA, scoreB) {
+export async function saveCourtResult(weekId, roundNumber, courtNumber, scoreA, scoreB, currentRounds = null) {
   const week = await getWeek(weekId);
   if (!week) return null;
-  const rounds = week.rounds.map((r) => {
+  const sourceRounds = currentRounds && Array.isArray(currentRounds) ? currentRounds : week.rounds;
+  const rounds = sourceRounds.map((r) => {
     if (r.round !== roundNumber) return r;
     return {
       ...r,
