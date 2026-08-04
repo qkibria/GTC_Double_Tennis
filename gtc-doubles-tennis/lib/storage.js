@@ -7,6 +7,36 @@ import { supabase } from "./supabaseClient";
 
 const DEFAULT_RATING = 5; // 1 (weakest) to 10 (strongest)
 
+function normalizeRoundsPayload(roundsPayload) {
+  if (Array.isArray(roundsPayload)) return roundsPayload;
+  if (roundsPayload && Array.isArray(roundsPayload.rounds)) return roundsPayload.rounds;
+  return [];
+}
+
+function normalizeWeek(week) {
+  if (!week) return null;
+  const roundsPayload = week.rounds;
+  const normalizedRounds = normalizeRoundsPayload(roundsPayload);
+  const category =
+    (roundsPayload && typeof roundsPayload === "object" && !Array.isArray(roundsPayload) && roundsPayload.category) ||
+    week.category ||
+    "Uncategorized";
+
+  return {
+    ...week,
+    category,
+    num_rounds: week.num_rounds ?? week.numRounds ?? 3,
+    rounds: normalizedRounds,
+  };
+}
+
+function toStoredRounds(rounds, category) {
+  return {
+    category: (category || "Uncategorized").trim() || "Uncategorized",
+    rounds: normalizeRoundsPayload(rounds),
+  };
+}
+
 // ---------- Date helpers ----------
 
 // Returns the ISO (yyyy-mm-dd) date of the upcoming Thursday, or today if
@@ -85,7 +115,7 @@ export async function getWeeks() {
     .select("*")
     .order("date", { ascending: false });
   if (error) throw error;
-  return data;
+  return (data || []).map(normalizeWeek);
 }
 
 export async function getWeek(id) {
@@ -95,7 +125,7 @@ export async function getWeek(id) {
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return normalizeWeek(data);
 }
 
 export async function findWeekByDate(date) {
@@ -105,16 +135,21 @@ export async function findWeekByDate(date) {
     .eq("date", date)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return normalizeWeek(data);
+}
+
+export async function getCategories() {
+  const weeks = await getWeeks();
+  return [...new Set(weeks.map((week) => week.category).filter(Boolean))].sort();
 }
 
 // Creates a new week, or overwrites an existing one (matched by id, or by
 // date if no id is given).
-export async function saveWeek({ id, date, numRounds, rounds }) {
+export async function saveWeek({ id, date, numRounds, rounds, category }) {
   const payload = {
     date,
-    num_rounds: numRounds,
-    rounds,
+    num_rounds: numRounds ?? 3,
+    rounds: toStoredRounds(rounds, category),
     updated_at: new Date().toISOString(),
   };
 
@@ -126,7 +161,7 @@ export async function saveWeek({ id, date, numRounds, rounds }) {
       .select()
       .single();
     if (error) throw error;
-    return data;
+    return normalizeWeek(data);
   }
 
   const { data, error } = await supabase
@@ -138,11 +173,11 @@ export async function saveWeek({ id, date, numRounds, rounds }) {
     if (error.code === "23505") {
       // A week for this date already exists — update it instead.
       const existing = await findWeekByDate(date);
-      if (existing) return saveWeek({ id: existing.id, date, numRounds, rounds });
+      if (existing) return saveWeek({ id: existing.id, date, numRounds, rounds, category });
     }
     throw error;
   }
-  return data;
+  return normalizeWeek(data);
 }
 
 // Saves one court's score within a week and marks it as saved.
@@ -158,14 +193,13 @@ export async function saveCourtResult(weekId, roundNumber, courtNumber, scoreA, 
       ),
     };
   });
-  const { data, error } = await supabase
-    .from("weeks")
-    .update({ rounds, updated_at: new Date().toISOString() })
-    .eq("id", weekId)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return saveWeek({
+    id: weekId,
+    date: week.date,
+    numRounds: week.num_rounds,
+    rounds,
+    category: week.category,
+  });
 }
 
 export async function deleteWeek(id) {
@@ -177,7 +211,7 @@ export async function deleteWeek(id) {
 // ---------- Stats ----------
 // A "set" = one court's result, in one round, in one week.
 
-export async function computeStats() {
+export async function computeStats(category = null) {
   const [weeks, players] = await Promise.all([getWeeks(), getPlayers()]);
   const stats = {};
 
@@ -192,27 +226,29 @@ export async function computeStats() {
     return stats[name];
   }
 
-  weeks.forEach((week) => {
-    (week.rounds || []).forEach((r) => {
-      r.courts.forEach((c) => {
-        if (!c.saved) return;
-        const scoreA = Number(c.scoreA);
-        const scoreB = Number(c.scoreB);
-        if (Number.isNaN(scoreA) || Number.isNaN(scoreB)) return;
-        const winner = scoreA === scoreB ? null : scoreA > scoreB ? "A" : "B";
-        c.teamA.forEach((name) => {
-          const s = ensure(name);
-          s.played++;
-          if (winner === "A") s.won++;
-        });
-        c.teamB.forEach((name) => {
-          const s = ensure(name);
-          s.played++;
-          if (winner === "B") s.won++;
+  weeks
+    .filter((week) => !category || week.category === category)
+    .forEach((week) => {
+      (week.rounds || []).forEach((r) => {
+        r.courts.forEach((c) => {
+          if (!c.saved) return;
+          const scoreA = Number(c.scoreA);
+          const scoreB = Number(c.scoreB);
+          if (Number.isNaN(scoreA) || Number.isNaN(scoreB)) return;
+          const winner = scoreA === scoreB ? null : scoreA > scoreB ? "A" : "B";
+          c.teamA.forEach((name) => {
+            const s = ensure(name);
+            s.played++;
+            if (winner === "A") s.won++;
+          });
+          c.teamB.forEach((name) => {
+            const s = ensure(name);
+            s.played++;
+            if (winner === "B") s.won++;
+          });
         });
       });
     });
-  });
 
   return Object.values(stats)
     .map((s) => ({ ...s, winPct: s.played ? Math.round((s.won / s.played) * 100) : 0 }))
