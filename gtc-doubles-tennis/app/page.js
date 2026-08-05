@@ -348,27 +348,6 @@ export default function GeneratePage() {
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Add a player</h2>
-        <label className="subtle" style={{ display: "block", marginBottom: 4 }}>
-          Category
-        </label>
-        <select
-          value={categorySelectValue}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          <option value="">Select or enter a category</option>
-          {categories.map((existingCategory) => (
-            <option key={existingCategory} value={existingCategory}>
-              {existingCategory}
-            </option>
-          ))}
-        </select>
-        <input
-          type="text"
-          placeholder="New category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          style={{ marginTop: 4 }}
-        />
         <input
           type="text"
           placeholder="Player name"
@@ -466,6 +445,27 @@ export default function GeneratePage() {
             <option key={n} value={n}>{n}</option>
           ))}
         </select>
+        <label className="subtle" style={{ display: "block", marginTop: 10 }}>
+          Category
+        </label>
+        <select
+          value={categorySelectValue}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          <option value="">Select or enter a category</option>
+          {categories.map((existingCategory) => (
+            <option key={existingCategory} value={existingCategory}>
+              {existingCategory}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          placeholder="New category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          style={{ marginTop: 4 }}
+        />
       </div>
 
       <button style={{ marginTop: 4 }} onClick={handleGenerate} disabled={busy}>
