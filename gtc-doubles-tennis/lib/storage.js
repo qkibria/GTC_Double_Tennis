@@ -240,12 +240,12 @@ export async function computeStats(category = null) {
           c.teamA.forEach((name) => {
             const s = ensure(name);
             s.played++;
-            if (winner === "A") s.won++;
+            if (winner === "A" || winner === null) s.won++;
           });
           c.teamB.forEach((name) => {
             const s = ensure(name);
             s.played++;
-            if (winner === "B") s.won++;
+            if (winner === "B" || winner === null) s.won++;
           });
         });
       });
