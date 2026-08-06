@@ -144,6 +144,10 @@ export default function RecordPage() {
       await saveCourtResult(activeWeek.id, round, court, scoreA, scoreB, weekToShow.rounds);
       const refreshed = await getWeeks();
       setWeeks(refreshed);
+      const updatedWeek = refreshed.find((w) => w.id === activeWeek.id);
+      if (updatedWeek) {
+        setDraftWeek(JSON.parse(JSON.stringify(updatedWeek)));
+      }
       setScores((prev) => {
         const next = { ...prev };
         delete next[key];
